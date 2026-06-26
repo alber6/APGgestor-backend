@@ -1,0 +1,71 @@
+id_trabajo,tipo_instalacion,id_cliente,id_operario,estado,precio,fecha,notas
+1001,Placas Solares,1,101,Completado,6500,2026-01-15,Instalación de 8 paneles inversores Huawei. Todo ok
+1002,Cargador Coche,2,102,Completado,1200,2026-01-16,Wallbox Pulsar Plus con balanceo de carga.
+1003,Domótica,4,103,Completado,3500,2026-01-18,Automatización de persianas y luces Shelly.
+1004,Avería,5,104,Completado,150,2026-01-19,Salto de diferencial por humedad en cocina. Resuelto.
+1005,Placas Solares,3,105,Completado,24000,2026-01-22,Instalación industrial 40kW en cubierta de nave.
+1006,Cargador Coche,6,106,Completado,1800,2026-01-25,Cargador doble Trydan para furgonetas de reparto.
+1007,Electricidad General,8,104,Completado,450,2026-01-28,Reforma de cuadro eléctrico antiguo y boletín.
+1008,Placas Solares,7,101,Completado,8900,2026-02-02,Estructura coplanar sobre teja. Batería de 5kWh.
+1009,Cargador Coche,9,102,Completado,1100,2026-02-05,Punto de recarga en garaje comunitario. Entrada por contador.
+1010,Domótica,10,103,Completado,1200,2026-02-07,Control de clima mediante pasarela Airzone.
+1011,Electricidad General,11,104,Completado,3200,2026-02-10,Acometida trifásica para nueva maquinaria de panadería.
+1012,Placas Solares,12,105,Completado,5800,2026-02-12,Instalación básica de 6 paneles. Sin excedentes de momento.
+1013,Cargador Coche,13,106,Completado,1300,2026-02-15,Instalación limpia. Cableado por falso techo 15 metros.
+1014,Placas Solares,14,101,Completado,7200,2026-02-18,Añadidos paneles adicionales a instalación existente.
+1015,Domótica,15,103,Completado,8500,2026-02-22,Integración de climatización y frío industrial en Home Assistant.
+1016,Avería,16,104,Completado,250,2026-02-24,Fallo en inversor solar por sobretensión. Sustituido en garantía.
+1017,Cargador Coche,17,102,Completado,1150,2026-02-26,Instalación en plaza de garaje de piso. Todo correcto.
+1018,Placas Solares,18,105,Completado,18500,2026-03-01,Paneles solares sobre marquesina metálica de parking.
+1019,Electricidad General,19,104,Completado,950,2026-03-04,Iluminación LED perimetral en jardín exterior.
+1020,Cargador Coche,20,106,Completado,1400,2026-03-06,Cargador Tesla Wall Connector en chalet.
+1021,Placas Solares,21,101,Completado,32000,2026-03-10,Ampliación campo fotovoltaico. 60 paneles nuevos.
+1022,Domótica,22,103,Completado,4100,2026-03-12,Hogar inteligente. Control de accesos y alarmas KNX.
+1023,Cargador Coche,23,102,Completado,1250,2026-03-15,Instalación estándar con canaleta blanca.
+1024,Electricidad General,24,104,Completado,600,2026-03-17,Instalación de línea dedicada para aire acondicionado.
+1025,Placas Solares,25,105,Completado,12300,2026-03-20,Autoconsumo comercial con vertido a red.
+1026,Placas Solares,1,101,Completado,1500,2026-03-25,Revisión anual y limpieza de placas fotovoltaicas.
+1027,Cargador Coche,4,102,Completado,1350,2026-03-28,Instalación de segundo cargador en la misma vivienda.
+1028,Avería,8,104,Completado,180,2026-04-02,Cortocircuito en línea de enchufes exteriores. Reemplazado cableado.
+1029,Domótica,7,103,Completado,2100,2026-04-05,Control inteligente de depuradora de piscina y riego automático.
+1030,Placas Solares,2,105,Completado,6200,2026-04-08,8 placas Jinko Solar con microinversores Enphase.
+1031,Cargador Coche,5,106,Completado,1100,2026-04-12,Punto de recarga básico para coche híbrido enchufable.
+1032,Electricidad General,10,104,Completado,350,2026-04-15,Cambio de mecanismos y enchufes en toda la vivienda (Simón 82).
+1033,Placas Solares,6,101,Completado,15500,2026-04-18,Instalación coplanar sobre sándwich metálico en nave.
+1034,Domótica,12,103,Completado,1800,2026-04-22,Configuración de asistentes de voz y bombillas Philips Hue.
+1035,Cargador Coche,14,102,Completado,1450,2026-04-25,Cargador con cable manguera de 7 metros integrado.
+1036,Avería,13,104,Completado,90,2026-04-27,Sustitución de térmico quemado en cuadro secundario.
+1037,Placas Solares,9,105,Completado,7400,2026-05-02,Instalación aislada con inversor Victron y baterías de litio.
+1038,Cargador Coche,16,106,Completado,1200,2026-05-05,Instalación rápida en chalet chalet.
+1039,Electricidad General,3,104,Completado,4800,2026-05-08,Saneamiento eléctrico completo de Industrial / Nave por inspección OCA.
+1040,Domótica,19,103,Completado,5300,2026-05-12,Sistema completo de persianas motorizadas Somfy y Home Assistant.
+1041,Placas Solares,22,101,Completado,9100,2026-05-15,Instalación residencial premium con optimizadores Solaredge.
+1042,Cargador Coche,25,102,Completado,1900,2026-05-18,Punto de recarga de 22kW trifásico para carretilla elevadora.
+1043,Avería,17,104,Completado,120,2026-05-20,Localización de derivación a tierra en línea de alumbrado.
+1044,Domótica,20,103,Completado,1600,2026-05-24,Instalación de termostatos inteligentes Tado en radiadores.
+1045,Placas Solares,15,105,Completado,29000,2026-05-28,Estructura este-oeste sobre cubierta plana de empresa textil.
+1046,Cargador Coche,24,106,Completado,1300,2026-06-01,Instalación de Policharger con sensor de modulación.
+1047,Electricidad General,23,104,Completado,750,2026-06-03,Instalación de toma de tierra nueva con pica y arqueta de registro.
+1048,Placas Solares,11,101,Completado,16800,2026-06-06,Estructura autoportante sobre suelo para casa de campo.
+1049,Domótica,5,103,En proceso,2400,2026-06-18,Instalando pasarelas para control de suelo radiante por zonas.
+1050,Placas Solares,8,105,En proceso,8200,2026-06-19,Montando la estructura de aluminio sobre el tejado. Teja árabe.
+1051,Cargador Coche,10,102,En proceso,1250,2026-06-20,Tirando manguera de cable desde centralización de contadores.
+1052,Electricidad General,14,104,En proceso,800,2026-06-21,Cableando la planta baja para reforma de cocina.
+1053,Placas Solares,13,101,En proceso,6900,2026-06-22,Esperando recepción de inversor de repuesto para arrancar.
+1054,Cargador Coche,22,106,Pendiente,1300,2026-06-23,Pendiente de acudir. Coche entrega prevista viernes.
+1055,Domótica,1,103,Pendiente,4500,2026-06-24,Instalación completa sistema de audio multiroom Sonos.
+1056,Placas Solares,17,105,Pendiente,11500,2026-06-25,Falta que el cliente retire andamio de la fachada.
+1057,Cargador Coche,12,102,Pendiente,1100,2026-06-26,Instalación programada para turno de mañana.
+1058,Avería,2,104,Pendiente,0,2026-06-26,Cliente avisa que el ICP salta esporádicamente por las noches.
+1059,Electricidad General,16,104,Pendiente,400,2026-06-27,Montaje de focos empotrados en falso techo de salón.
+1060,Placas Solares,20,101,Pendiente,7600,2026-06-29,Planificado montaje. Permiso de obra del ayuntamiento concedido.
+1061,Cargador Coche,7,106,Pendiente,1400,2026-06-30,Instalación de cargador inteligente con app de control.
+1062,Domótica,18,103,Pendiente,9500,2026-07-02,Integración completa de inmótica en oficinas comerciales.
+1063,Placas Solares,23,105,Pendiente,8800,2026-07-04,Instalación residencial estándar. Pendiente de firma de contrato.
+1064,Cargador Coche,19,102,Pendiente,1200,2026-07-05,Punto de recarga en plaza doble de parking subterráneo.
+1065,Avería,24,104,Pendiente,0,2026-07-06,Revisar derivación en el circuito de fuerza del garaje.
+1066,Electricidad General,9,104,Pendiente,1200,2026-07-08,Sustitución de líneas generales de alimentación (LGA).
+1067,Placas Solares,16,101,Pendiente,9400,2026-07-10,Instalación de 12 paneles monocristalinos y vatímetro.
+1068,Cargador Coche,3,106,Pendiente,2100,2026-07-12,Cargador rápido de corriente continua en zona de carga.
+1069,Domótica,11,103,Pendiente,3700,2026-07-15,Automatización de persianas metálicas y cierres de seguridad.
+1070,Placas Solares,5,105,Pendiente,5400,2026-07-18,Instalación reducida de 4 paneles para amortización ultra rápida.

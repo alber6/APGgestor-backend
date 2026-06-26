@@ -1,0 +1,26 @@
+id_cliente,nombre,telefono,email,direccion,tipo_vivienda
+1,Alejandro Sanz,600111222,alejandro@email.com,Calle Mayor 14 Madrid,Chalet
+2,María Begoña,611222333,maria@email.com,Av. de la Constitución 45 Móstoles,Oficina / Local
+3,Talleres Mecánicos Norte,916554433,contacto@talleresnorte.com,Polígono Industrial Rey Juan Carlos Nave 4 Alcorcón,Industrial / Nave
+4,Roberto Brasero,622333444,roberto@email.com,Calle del Sol 3 Tres Cantos,Chalet
+5,Lucía Laporta,633444555,lucia@email.com,Paseo de la Castellana 120 4B Madrid,Piso
+6,Logística Algete S.L.,918445566,info@logisticaalgete.com,Calle del Plomo 8 Algete,Industrial / Nave
+7,Fernando Alonso,644555666,fernando@email.com,Avenida de la Carrera 33 Pozuelo,Chalet
+8,Elena Santonja,655666777,elena@email.com,Calle de la Luna 12 Getafe,Oficina / Local
+9,Pedro Picapiedra,666777888,pedro@email.com,Calle Roca 5 Majadahonda,Chalet
+10,Marta Sánchez,677888999,marta@email.com,Calle Serrano 15 2A Madrid,Piso
+11,Panificadora El Horno,913221100,pedidos@elhorno.com,Polígono El Carralero Nave 12 Majadahonda,Industrial / Nave
+12,Andrés Iniesta,688999000,andres@email.com,Calle Fuentealbilla 6 Las Rozas,Chalet
+13,Sofía Vergara,699000111,sofia@email.com,Avenida de Europa 22 Pozuelo,Chalet
+14,Javier Bardem,600222333,javier@email.com,Calle del Cine 4 Torrelodones,Chalet
+15,Instalaciones Frigoríficas S.A.,914556677,admin@frigosanz.com,Calle Real 88 Fuenlabrada,Industrial / Nave
+16,David Bisbal,611333444,david@email.com,Calle Almería 22 Alcobendas,Chalet
+17,Carmen Machi,622444555,carmen@email.com,Calle de la Comedia 8 Leganés,Piso
+18,Supermercados Madrid,912334455,obras@supermadrid.com,Calle del Comercio 45 Vallecas,Industrial / Nave
+19,Sergio Ramos,633555666,sergio@email.com,Avenida Finca 4 Pozuelo,Chalet
+20,Sara Carbonero,644666777,sara@email.com,Calle del Río 19 Boadilla del Monte,Chalet
+21,Concesionario AutoMadrid,917889900,gerencia@automadrid.com,Avenida de la Automoción 2 San Sebastián de los Reyes,Industrial / Nave
+22,Penélope Cruz,655777888,penelope@email.com,Calle de la Rosa 3 Torrelodones,Chalet
+23,Antonio Banderas,666888999,antonio@email.com,Calle Málaga 9 Alcobendas,Chalet
+24,Belén Rueda,677999000,belen@email.com,Calle de la Pinacoteca 5 Las Rozas,Oficina / Local
+25,Impresiones Rápidas S.L.,915667788,hola@printrapida.com,Calle de la Tinta 14 Villaverde,Industrial / Nave

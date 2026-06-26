@@ -1,0 +1,8 @@
+nombre,password,rol,id_operario_vinculado
+Admin,admin1234,admin,
+Carlos Gómez,1234,operario,101
+Manuel Rodríguez,1234,operario,102
+Javier López,1234,operario,103
+Antonio Martínez,1234,operario,104
+Luis Sánchez,1234,operario,105
+Francisco Pérez,1234,operario,106
