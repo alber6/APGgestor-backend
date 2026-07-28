@@ -1,5 +1,31 @@
 // importamos mongoose
-const mongoose = require('mongoose')
+const mongoose = require('mongoose');
+
+// definir el esquema de partidas de presupuesto
+const PartidaPresupuestoSchema = new mongoose.Schema({
+    concepto: { type: String, required: true },
+    cantidad: { type: Number, default: 1 },
+    precioUnitario: { type: Number, default: 0 },
+    total: { type: Number, default: 0 }
+}, { _id: true });
+
+// definir el esquema de alertas de material
+const AlertaMaterialSchema = new mongoose.Schema({
+    texto: { type: String, required: true },
+    fecha: { type: Date, default: Date.now },
+    atendida: { type: Boolean, default: false }
+}, { _id: true });
+
+// definir el esquema de documentos (PDFs)
+const DocumentoSchema = new mongoose.Schema({
+    url: { type: String, required: true },
+    tipo: { 
+        type: String, 
+        required: true, 
+        enum: ['plano_electrico', 'presupuesto', 'otros'] 
+    },
+    nombre: { type: String, required: true }
+}, { _id: true });
 
 // definir el esquema de job
 const JobSchema = new mongoose.Schema({
@@ -18,36 +44,62 @@ const JobSchema = new mongoose.Schema({
         enum: ['Placas Solares', 'Cargador Coche', 'Avería', 'Electricidad General', 'Domótica']
     },
 
-    //RELACIÓN CON EL CLIENTE
-    // en vez de poner todos los datos del cliente, guardamos el id que genera mongo 
-    // ref dice a mongoose que ese id pertenece a la coleccion Customer
+    //RELACIÓN CON EL CLIENTE (Cliente general / tradicional)
     cliente: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Customer',
-        required: true
+        required: false
     },
 
-    // RELACIÓN CON EL OPERARIO
-    // guardamos el id interno de mongo del trabajador asignado
+    // CLIENTES B2B (Estructura Coarsa)
+    // clienteFacturacion: quien paga (ej: Coarsa)
+    clienteFacturacion: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Customer',
+        required: false
+    },
+    // clienteUbicacion: dónde es la obra (ej: Ayuntamiento)
+    clienteUbicacion: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Customer',
+        required: false
+    },
+
+    // RELACIÓN CON OPERARIOS (Asignación dinámica multi-operario)
+    operarios: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Operator'
+    }],
+
+    // Mantener operario único opcional para compatibilidad con datos heredados
     operario: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Operator',
-        required: true
+        required: false
     },
 
-    // añadimos el estado actual de la obra, depende de su estado, react lo pintará de diferente color
+    // añadimos el estado actual de la obra (Kanban)
     estado: {
         type: String,
         required: true,
-        enum: ['Pendiente', 'En proceso', 'Completado', 'Incidencia'],
+        enum: ['Pendiente', 'En proceso', 'Esperando Material', 'Finalizado', 'Completado', 'Incidencia'],
         default: 'Pendiente'
     },
 
-    // presupuesto o precio para el control de los ingresos de la empresa
+    // presupuesto o precio base para el control de los ingresos de la empresa
     precio: {
         type: Number,
         required: true
     },
+
+    // GESTIÓN DE PRESUPUESTOS VIVOS (Presupuesto base + partidas extra/imprevistos)
+    partidasPresupuesto: [PartidaPresupuestoSchema],
+
+    // PETICIÓN DE MATERIALES (Alertas solicitadas por operarios desde la obra)
+    alertasMaterial: [AlertaMaterialSchema],
+
+    // GESTIÓN DOCUMENTAL (PDFs: plano_electrico, presupuesto, otros)
+    documentos: [DocumentoSchema],
 
     //fecha planificada para realizar el trabajo
     fecha: {
@@ -64,4 +116,4 @@ const JobSchema = new mongoose.Schema({
     timestamps: true
 });
 
-module.exports = mongoose.model('Job', JobSchema);
+module.exports = mongoose.model('Job', JobSchema);
