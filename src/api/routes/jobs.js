@@ -29,6 +29,9 @@ router.get('/', attachUserIfAuth, jobs.getJobs);
 router.get('/operator/:operatorId', attachUserIfAuth, jobs.getJobsByOperator);
 router.get('/:id', attachUserIfAuth, jobs.getJobById);
 router.patch('/:id', attachUserIfAuth, jobs.updateJob);
+router.put('/:id', attachUserIfAuth, jobs.updateJob);
 router.post('/', attachUserIfAuth, jobs.createJob);
+router.delete('/:id', attachUserIfAuth, jobs.deleteJob);
 
-module.exports = router;
+module.exports = router;
+

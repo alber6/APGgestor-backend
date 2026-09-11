@@ -1,12 +1,13 @@
-// importar express
 const express = require('express');
 const router = express.Router();
+const operators = require('../controllers/operators');
+const { isAuth } = require('../../middlewares/isAuth');
 
-//importar el controlador
-const operators = require('../controllers/operators')
-
-// Definimos las rutas y le pasamos la función del controlador
 router.get('/', operators.getOperators);
-router.patch('/:id', operators.updateAvailability);
+router.post('/', isAuth(['admin']), operators.createOperator);
+router.patch('/:id', isAuth(['admin']), operators.updateOperator);
+router.put('/:id', isAuth(['admin']), operators.updateOperator);
+router.delete('/:id', isAuth(['admin']), operators.deleteOperator);
 
-module.exports = router
+module.exports = router;
+

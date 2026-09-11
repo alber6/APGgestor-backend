@@ -154,7 +154,17 @@ const updateJob = async (req, res) => {
 // Crear una nueva orden de trabajo (POST) desde el formulario Frontend
 const createJob = async (req, res) => {
   try {
-    const newJob = new Job(req.body);
+    let nextId = req.body.id_trabajo;
+    if (!nextId) {
+      const lastJob = await Job.findOne().sort({ id_trabajo: -1 });
+      nextId = lastJob ? lastJob.id_trabajo + 1 : 1001;
+    }
+
+    const newJob = new Job({
+      ...req.body,
+      id_trabajo: nextId
+    });
+    
     await newJob.save();
     
     res.status(201).json({ 
@@ -170,10 +180,28 @@ const createJob = async (req, res) => {
   }
 };
 
+// Eliminar una orden de trabajo (DELETE)
+const deleteJob = async (req, res) => {
+  try {
+    const deletedJob = await Job.findByIdAndDelete(req.params.id);
+    if (!deletedJob) {
+      return res.status(404).json({ message: 'Orden de trabajo no encontrada' });
+    }
+    res.json({ message: 'Orden de trabajo eliminada con éxito', job: deletedJob });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Error al eliminar la orden de trabajo', 
+      error: error.message 
+    });
+  }
+};
+
 module.exports = {
   getJobs,
   getJobsByOperator,
   getJobById,
   updateJob,
-  createJob
-};
+  createJob,
+  deleteJob
+};
+

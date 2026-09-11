@@ -13,11 +13,14 @@ const getCustomers = async (req, res) => {
   }
 };
 
-// Crear un nuevo cliente (Calcula el id_cliente automáticamente en el servidor)
+// Crear un nuevo cliente (Calcula el id_cliente automáticamente en el servidor si no se pasa)
 const createCustomer = async (req, res) => {
   try {
-    const lastCustomer = await Customer.findOne().sort({ id_cliente: -1 });
-    const nextId = lastCustomer ? lastCustomer.id_cliente + 1 : 1;
+    let nextId = req.body.id_cliente;
+    if (!nextId) {
+      const lastCustomer = await Customer.findOne().sort({ id_cliente: -1 });
+      nextId = lastCustomer ? lastCustomer.id_cliente + 1 : 1;
+    }
 
     const newCustomer = new Customer({
       id_cliente: nextId,
@@ -25,7 +28,7 @@ const createCustomer = async (req, res) => {
       telefono: req.body.telefono,
       email: req.body.email,
       direccion: req.body.direccion,
-      tipo_vivienda: req.body.tipo_vivienda
+      tipo_vivienda: req.body.tipo_vivienda || 'Vivienda'
     });
 
     const savedCustomer = await newCustomer.save();
@@ -38,8 +41,47 @@ const createCustomer = async (req, res) => {
   }
 };
 
+// Actualizar un cliente existente
+const updateCustomer = async (req, res) => {
+  try {
+    const updatedCustomer = await Customer.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+    
+    if (!updatedCustomer) {
+      return res.status(404).json({ message: 'Cliente no encontrado' });
+    }
+    res.json(updatedCustomer);
+  } catch (error) {
+    res.status(400).json({ 
+      message: 'Error al actualizar el cliente', 
+      error: error.message 
+    });
+  }
+};
+
+// Eliminar un cliente por ID
+const deleteCustomer = async (req, res) => {
+  try {
+    const deletedCustomer = await Customer.findByIdAndDelete(req.params.id);
+    if (!deletedCustomer) {
+      return res.status(404).json({ message: 'Cliente no encontrado' });
+    }
+    res.json({ message: 'Cliente eliminado con éxito', customer: deletedCustomer });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Error al eliminar el cliente', 
+      error: error.message 
+    });
+  }
+};
+
 // Exportación unificada en un objeto
 module.exports = {
   getCustomers,
-  createCustomer
-};
+  createCustomer,
+  updateCustomer,
+  deleteCustomer
+};
