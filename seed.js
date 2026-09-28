@@ -1,127 +1,83 @@
-const fs = require('fs'); // modulo nativo de node para leer y escribir archivos
-const path = require('path'); //modulo para gestionar rutas de carpetas de forma segura
-const mongoose = require('mongoose'); // conectarse y guardar en la base de datos de mongo
-const csv = require('csv-parser'); // libreria externa que convierte texto de un csv a json
-require('dotenv').config(); //para cargar variables secretas del archivo .env
+const mongoose = require('mongoose');
+require('dotenv').config();
 
-// hay que importar los modelos de mongoose para interactuar con sus colecciones
 const User = require('./src/api/models/User');
-const Operator = require('./src/api/models/Operator');
 const Customer = require('./src/api/models/Customer');
 const Job = require('./src/api/models/Job');
 
-// conexión a la base de datos de mongo con la direccion que tenemos en .env
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('🌱 Conectado a mongo para sembrar seed'))
+    .then(() => console.log('🌱 Conectado a mongo para sembrar datos JSON'))
     .catch((error) => console.log('❌ Error en la conexión:', error));
 
-// función para leer cualquier archivo csv de la carpeta data
-// transforma el archivo de texto en una lista array
-const readCSV = (fileName) => {
-    return new Promise((resolve, reject) => {
-        const results = [];
-        // se abre el flujo de lectura del archivo dentro de la carpeta data
-        fs.createReadStream(path.join(__dirname, 'data', fileName))
-            .pipe(csv()) //pasamos el texto por el filtro de csv-parser para trocearlo por comas
-            .on('data', (data) => results.push(data)) // cada fila que lee lo mete al array
-            .on('end', () => resolve(results)) //cuanto termina de leer, devuelve los datos
-            .on('error', (error) => reject(error)); //si hay algún fallo
-    });
-};
-
-// función asíncrona que coordina toda la inyección de los datos
 const seedDataBase = async () => {
     try {
-        // primero limpiar la base de datos para evitar duplicados por si se ejecuta por error dos veces 
-        await Operator.deleteMany({});
         await Customer.deleteMany({});
         await Job.deleteMany({});
         await User.deleteMany({});
-        console.log('Base de datos limpia, colecciones vacías')
+        console.log('🧹 Base de datos limpia, colecciones vacías.');
 
-        // leer archivos csv -> llamar a la función para cargar los datos
-        const operatorData = await readCSV('operators.csv');
-        const customerData = await readCSV('customers.csv');
-        const jobData = await readCSV('jobs.csv');
-        const usersData = await readCSV('users.csv'); // 🌟 MODIFICACIÓN: Cargamos el CSV de usuarios
+        // Crear Usuarios (Admins y Operarios)
+        const usersData = [
+            { nombre: 'Admin', password: 'admin', rol: 'admin' },
+            { nombre: 'Carlos Gómez', password: '1234', rol: 'operario' },
+            { nombre: 'Manuel López', password: '1234', rol: 'operario' }
+        ];
+        const users = await User.insertMany(usersData);
+        console.log(`🔒 Éxito: ${users.length} Usuarios iniciales creados.`);
 
-        // añadir operarios y clientes independientemente
-        //como datos csv tienen formato string, usamos .map() para transformar ids o disponibilidad a números o booleanos
-        const operators = await Operator.insertMany(operatorData.map(op => ({
-            id_operario: Number(op.id_operario),
-            nombre: op.nombre,
-            especialidad: op.especialidad,
-            disponibilidad: op.disponibilidad === 'true' //si el texto es 'true', guarda true
-        })));
+        const operarioCarlos = users.find(u => u.nombre === 'Carlos Gómez');
+        const operarioManuel = users.find(u => u.nombre === 'Manuel López');
 
-        const customers = await Customer.insertMany(customerData.map(c => ({
-            id_cliente: Number(c.id_cliente),
-            nombre: c.nombre,
-            telefono: c.telefono,
-            email: c.email,
-            direccion: c.direccion,
-            tipo_vivienda: c.tipo_vivienda
-        })));
-
-        console.log(`✅ ${operators.length} Operarios y ${customers.length} clientes añadidos con éxito`);
-
-        // Mapeamos los usuarios del CSV y cruzamos el id_operario_vinculado con el _id real de mongo
-        const finalUsers = usersData.map(u => {
-            const dbOperator = u.id_operario_vinculado 
-                ? operators.find(o => o.id_operario === Number(u.id_operario_vinculado)) 
-                : null;
-
-            return {
-                email: u.email,
-                password: u.password,
-                nombre: u.nombre,
-                rol: u.rol,
-                operarioId: dbOperator ? dbOperator._id : null // Si no tiene operario (como tu padre), se guarda null
-            };
-        });
-
-        await User.insertMany(finalUsers);
-        console.log(`🔒 Éxito: ${finalUsers.length} Usuarios de acceso sembrados desde el CSV`);
-
-        // CREAR LAS RELACIONES DE LAS ÓRDENES DE TRABAJO
-        // los trabajadores necesitan el id de mongo del cliente y del operario
-        const finalJobs = []
-
-        // recorremos los trabajos que venían del csv
-        for (const job of jobData){
-            // buscar clientes que guardados en mongo que coinciden con el id_cliente del csv
-            const dbCustomer = customers.find(c => c.id_cliente === Number(job.id_cliente));
-            // se hace lo mismo con operarios, buscar id_operario que coincide con id_operario del csv de job
-            const dbOperator = operators.find(op => op.id_operario === Number(job.id_operario));
-
-            // si encontramos a ambos en la base de datos, montamos el objeto final relacionándolos
-            if ( dbCustomer && dbOperator) {
-                finalJobs.push({
-                    id_trabajo: Number(job.id_trabajo),
-                    tipo_instalacion: job.tipo_instalacion,
-                    cliente: dbCustomer._id,
-                    operario: dbOperator._id,
-                    estado: job.estado,
-                    precio: Number(job.precio),
-                    fecha: new Date(job.fecha),
-                    notas: job.notas
-                });
+        // Crear Clientes
+        const customersData = [
+            {
+                nombre: 'Juan Pérez',
+                telefono: '600111222',
+                email: 'juan.perez@example.com',
+                direccion: 'Calle Mayor 12, Madrid',
+                tipo_vivienda: 'Chalet'
+            },
+            {
+                nombre: 'Coarsa S.L.',
+                telefono: '912345678',
+                email: 'contacto@coarsa.com',
+                direccion: 'Av. Industria 45, Polígono Nord',
+                tipo_vivienda: 'Industrial / Nave'
             }
-        }
+        ];
+        const customers = await Customer.insertMany(customersData);
+        console.log(`👥 Éxito: ${customers.length} Clientes iniciales creados.`);
 
-        // inyectamos todas las órdenes de trabajo ya relacionados con mongo
-        await Job.insertMany(finalJobs);
-        console.log(`🚀 Éxito: ${finalJobs.length} Órdenes de trabajo relacionadas y añadidas`)
+        // Crear Trabajos / Obras
+        const jobsData = [
+            {
+                tipo_instalacion: 'Placas Solares',
+                cliente: customers[0]._id,
+                operario: operarioCarlos ? operarioCarlos._id : null,
+                estado: 'En proceso',
+                precio: 4500,
+                fecha: new Date(),
+                notas: 'Instalación de 8 paneles solares en tejado.'
+            },
+            {
+                tipo_instalacion: 'Cargador Coche',
+                cliente: customers[1]._id,
+                operario: operarioManuel ? operarioManuel._id : null,
+                estado: 'Pendiente',
+                precio: 1200,
+                fecha: new Date(),
+                notas: 'Instalar punto de recarga rápido de 22kW.'
+            }
+        ];
+        await Job.insertMany(jobsData);
+        console.log(`🚀 Éxito: ${jobsData.length} Órdenes de trabajo creadas.`);
 
-        // cerramos la conexión con la base de datos para que el script termine
         mongoose.connection.close();
-        console.log('Conexión a mongo cerrada correctamente')
+        console.log('✅ Sembrado completado. Conexión cerrada.');
     } catch (error) {
-        // si falla en cualquier momento, capturamos el error
-        console.error('❌ Error añadiendo la semilla a la base de datos:', error);
-        mongoose.connection.close()
+        console.error('❌ Error sembrando la base de datos:', error);
+        mongoose.connection.close();
     }
 };
 
-// arrancar el script
-seedDataBase();
+seedDataBase();

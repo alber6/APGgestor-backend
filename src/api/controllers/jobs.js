@@ -27,8 +27,8 @@ const getJobs = async (req, res) => {
       .populate('cliente', 'nombre telefono direccion tipo_vivienda')
       .populate('clienteFacturacion', 'nombre telefono direccion NIF CIF')
       .populate('clienteUbicacion', 'nombre telefono direccion')
-      .populate('operario', 'nombre especialidad')
-      .populate('operarios', 'nombre especialidad')
+      .populate('operario', 'nombre rol')
+      .populate('operarios', 'nombre rol')
       .sort({ fecha: -1 });
 
     const filteredJobs = jobs.map(job => applyPdfRoleFilter(job, userRole));
@@ -56,8 +56,8 @@ const getJobsByOperator = async (req, res) => {
       .populate('cliente', 'nombre telefono direccion notas')
       .populate('clienteFacturacion', 'nombre telefono direccion')
       .populate('clienteUbicacion', 'nombre telefono direccion')
-      .populate('operario', 'nombre especialidad')
-      .populate('operarios', 'nombre especialidad')
+      .populate('operario', 'nombre rol')
+      .populate('operarios', 'nombre rol')
       .sort({ fecha: 1 });
 
     const filteredJobs = operatorJobs.map(job => applyPdfRoleFilter(job, userRole));

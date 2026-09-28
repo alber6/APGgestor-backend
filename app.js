@@ -10,8 +10,7 @@ app.use(cors()); //permitir que react se comunique con este backend
 app.use(express.json()); // permitir que el servidor entienda datos en json
 
 //RUTAS DE LA API 
-// Le decimos a Express que cuando alguien entre en /api/operators, use el archivo de rutas de operarios, y así con todos.
-app.use('/api/operators', require('./src/api/routes/operators'));
+app.use('/api/users', require('./src/api/routes/users'));
 app.use('/api/customers', require('./src/api/routes/customers'));
 app.use('/api/jobs', require('./src/api/routes/jobs'));
 app.use('/api/auth', require('./src/api/routes/auth'));

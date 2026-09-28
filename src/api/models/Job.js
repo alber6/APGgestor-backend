@@ -30,18 +30,15 @@ const DocumentoSchema = new mongoose.Schema({
 // definir el esquema de job
 const JobSchema = new mongoose.Schema({
 
-    //id numérico que vendrá en excel para identificar la orden de trabajo
     id_trabajo: {
         type: Number,
-        required: true, 
-        unique: true
+        default: null
     },
 
     // tipo de instalacion que se va a realizar en la obra
     tipo_instalacion: {
         type: String,
-        required: true, 
-        enum: ['Placas Solares', 'Cargador Coche', 'Avería', 'Electricidad General', 'Domótica']
+        required: true
     },
 
     //RELACIÓN CON EL CLIENTE (Cliente general / tradicional)
@@ -52,31 +49,29 @@ const JobSchema = new mongoose.Schema({
     },
 
     // CLIENTES B2B (Estructura Coarsa)
-    // clienteFacturacion: quien paga (ej: Coarsa)
     clienteFacturacion: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Customer',
         required: false
     },
-    // clienteUbicacion: dónde es la obra (ej: Ayuntamiento)
     clienteUbicacion: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Customer',
         required: false
     },
 
-    // RELACIÓN CON OPERARIOS (Asignación dinámica multi-operario)
+    // RELACIÓN CON OPERARIOS (User con rol operario)
     operarios: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Operator'
+        ref: 'User'
     }],
 
-    // Mantener operario único opcional para compatibilidad con datos heredados
     operario: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Operator',
+        ref: 'User',
         required: false
     },
+
 
     // añadimos el estado actual de la obra (Kanban)
     estado: {
