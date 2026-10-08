@@ -31,16 +31,28 @@ const seedDataBase = async () => {
         // Crear Clientes
         const customersData = [
             {
+                id_cliente: 101,
+                nif: '12345678Z',
                 nombre: 'Juan Pérez',
                 telefono: '600111222',
                 email: 'juan.perez@example.com',
+                direccion_fiscal: 'Calle Mayor 12',
+                localidad: 'Madrid',
+                provincia: 'Madrid',
+                cp: '28001',
                 direccion: 'Calle Mayor 12, Madrid',
                 tipo_vivienda: 'Chalet'
             },
             {
+                id_cliente: 102,
+                nif: 'B98765432',
                 nombre: 'Coarsa S.L.',
                 telefono: '912345678',
                 email: 'contacto@coarsa.com',
+                direccion_fiscal: 'Av. Industria 45',
+                localidad: 'Alcorcón',
+                provincia: 'Madrid',
+                cp: '28923',
                 direccion: 'Av. Industria 45, Polígono Nord',
                 tipo_vivienda: 'Industrial / Nave'
             }
@@ -51,7 +63,12 @@ const seedDataBase = async () => {
         // Crear Trabajos / Obras
         const jobsData = [
             {
+                id_trabajo: 1001,
                 tipo_instalacion: 'Placas Solares',
+                direccion_obra: 'Calle Gran Vía 15, Tejado Principal',
+                localidad_obra: 'Madrid',
+                cp_obra: '28013',
+                provincia_obra: 'Madrid',
                 cliente: customers[0]._id,
                 operario: operarioCarlos ? operarioCarlos._id : null,
                 estado: 'En proceso',
@@ -60,7 +77,12 @@ const seedDataBase = async () => {
                 notas: 'Instalación de 8 paneles solares en tejado.'
             },
             {
+                id_trabajo: 1002,
                 tipo_instalacion: 'Cargador Coche',
+                direccion_obra: 'Av. Industria 45, Nave 3',
+                localidad_obra: 'Alcorcón',
+                cp_obra: '28923',
+                provincia_obra: 'Madrid',
                 cliente: customers[1]._id,
                 operario: operarioManuel ? operarioManuel._id : null,
                 estado: 'Pendiente',

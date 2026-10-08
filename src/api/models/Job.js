@@ -41,6 +41,68 @@ const JobSchema = new mongoose.Schema({
         required: true
     },
 
+    // DATOS DEL EMPLAZAMIENTO DE LA OBRA (UBICACIÓN FÍSICA GRANULAR)
+    tipo_via_obra: {
+        type: String,
+        trim: true,
+        default: 'CALLE'
+    },
+    nombre_via_obra: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    numero_obra: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    bloque_obra: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    portal_obra: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    escalera_obra: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    piso_obra: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    puerta_obra: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    direccion_obra: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    localidad_obra: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    cp_obra: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    provincia_obra: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+
     //RELACIÓN CON EL CLIENTE (Cliente general / tradicional)
     cliente: {
         type: mongoose.Schema.Types.ObjectId,
