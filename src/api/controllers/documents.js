@@ -207,7 +207,24 @@ const generateMemoriaPDF = async (req, res) => {
     const pages = pdfDoc.getPages();
     const pag1 = pages[0]; // Primera página del formulario oficial
 
+    // 🔍 DIAGNÓSTICO — dimensiones reales de la página 1
+    const { width: pgWidth, height: pgHeight } = pag1.getSize();
+    console.log(`\n📐 DIAGNÓSTICO PDF — Dimensiones página 1: width=${pgWidth}, height=${pgHeight}`);
+    console.log(`   Recuerda: pdf-lib usa origen (0,0) = esquina INFERIOR IZQUIERDA`);
+    console.log(`   Punto central estimado: x=${Math.round(pgWidth / 2)}, y=${Math.round(pgHeight / 2)}\n`);
+
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+    // ✅ TEXTO DE PRUEBA ROJO — confirma que pdf-lib escribe en el PDF
+    // Si este texto aparece en el PDF descargado, el problema es solo de coordenadas.
+    // Si NO aparece, el problema está en la carga/guardado del PDF o en la respuesta HTTP.
+    pag1.drawText('TEXTO DE PRUEBA - APGGESTOR', {
+      x: 150,
+      y: 750,
+      size: 14,
+      font,
+      color: rgb(1, 0, 0), // Rojo para que destaque
+    });
 
     // ─────────────────────────────────────────────────────────────
     // 5. Preparar datos del cliente y de la obra
@@ -276,6 +293,25 @@ const generateMemoriaPDF = async (req, res) => {
     //    │  Tipo Instalación                    │ y ≈ 350
     //    └──────────────────────────────────────┘
     // ─────────────────────────────────────────────────────────────
+
+    // 🔍 DIAGNÓSTICO — Verificar que los datos llegan correctamente desde MongoDB
+    console.log('\n══════════════════════════════════════════════════════════');
+    console.log('🔍 DIAGNÓSTICO generateMemoriaPDF — DATOS RECIBIDOS DE BD');
+    console.log('══════════════════════════════════════════════════════════');
+    console.log('CLIENTE ENCONTRADO:', JSON.stringify(clienteObj, null, 2));
+    console.log('--------------------------------------------------------------');
+    console.log('DATOS OBRA:', JSON.stringify({
+      id_trabajo:      job.id_trabajo,
+      tipo_instalacion:job.tipo_instalacion,
+      tipo_via_obra:   job.tipo_via_obra,
+      nombre_via_obra: job.nombre_via_obra,
+      numero_obra:     job.numero_obra,
+      localidad_obra:  job.localidad_obra,
+      cp_obra:         job.cp_obra,
+      provincia_obra:  job.provincia_obra,
+      fecha:           job.fecha,
+    }, null, 2));
+    console.log('══════════════════════════════════════════════════════════\n');
 
     // — TITULAR / SOLICITANTE —
     stamp(pag1, clienteObj.nif || '',    520, 565, 9); // NIF (campo estrecho, derecha)
