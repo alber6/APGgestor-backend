@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const PizZip = require('pizzip');
 const Docxtemplater = require('docxtemplater');
-const { PDFDocument } = require('pdf-lib');
+const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
 const Job = require('../models/Job');
 
 /**
@@ -158,14 +158,18 @@ const generateJobDocument = async (req, res) => {
 
 /**
  * Controller para la generación de la Memoria Técnica oficial en PDF.
- * Utiliza el PDF oficial de la Comunidad de Madrid como plantilla de formulario.
+ * Estrategia: escritura directa por coordenadas (drawText) sobre el PDF oficial
+ * de la Comunidad de Madrid, sin tocar el formulario interactivo para evitar
+ * corrupción de páginas en Adobe y lectores PDF estándar.
  * GET /api/jobs/:id/generate-memoria
  */
 const generateMemoriaPDF = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // 1. Consulta a MongoDB para obtener la Obra por ID y popular los datos del cliente
+    // ─────────────────────────────────────────────────────────────
+    // 1. Consultar MongoDB: Obra + datos del cliente asociado
+    // ─────────────────────────────────────────────────────────────
     const job = await Job.findById(id).populate('cliente');
 
     if (!job) {
@@ -174,7 +178,9 @@ const generateMemoriaPDF = async (req, res) => {
       });
     }
 
-    // 2. Resolver la ruta estática hacia el PDF oficial de la Comunidad de Madrid
+    // ─────────────────────────────────────────────────────────────
+    // 2. Resolver ruta de la plantilla oficial (templates/memoria.pdf)
+    // ─────────────────────────────────────────────────────────────
     let templatePath = path.resolve(__dirname, '../../../templates/memoria.pdf');
 
     if (!fs.existsSync(templatePath)) {
@@ -183,133 +189,146 @@ const generateMemoriaPDF = async (req, res) => {
 
     if (!fs.existsSync(templatePath)) {
       return res.status(500).json({
-        message: 'No se encontró el archivo de plantilla templates/memoria.pdf en el servidor.'
+        message: 'No se encontró el archivo templates/memoria.pdf en el servidor.'
       });
     }
 
-    // 3. Leer el PDF en buffer y cargarlo con pdf-lib
-    const pdfBuffer = fs.readFileSync(templatePath);
-    const pdfDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
-    const form = pdfDoc.getForm();
+    // ─────────────────────────────────────────────────────────────
+    // 3. Cargar el PDF original con pdf-lib
+    //    → ignoreEncryption: true por si el PDF oficial tiene restricciones
+    // ─────────────────────────────────────────────────────────────
+    const bufferOriginal = fs.readFileSync(templatePath);
+    const pdfDoc = await PDFDocument.load(bufferOriginal, { ignoreEncryption: true });
 
-    // 4. =========================================================
-    //    INSPECCIÓN: Imprimir todos los nombres de campo técnico
-    //    del PDF oficial de la Comunidad de Madrid
-    // =========================================================
-    console.log('\n============================================================');
-    console.log('  📋 CAMPOS DEL FORMULARIO PDF - MEMORIA COMUNIDAD DE MADRID');
-    console.log('============================================================');
-    const fields = form.getFields();
-    fields.forEach((field, index) => {
-      const tipo = field.constructor.name;
-      console.log(`  [${String(index + 1).padStart(3, '0')}] [${tipo.padEnd(20)}] → "${field.getName()}"`);
-    });
-    console.log(`  Total de campos detectados: ${fields.length}`);
-    console.log('============================================================\n');
+    // ─────────────────────────────────────────────────────────────
+    // 4. Obtener páginas y fuente estándar para el texto inyectado
+    //    (Helvetica es la fuente más compatible y visualmente neutral)
+    // ─────────────────────────────────────────────────────────────
+    const pages = pdfDoc.getPages();
+    const pag1 = pages[0]; // Primera página del formulario oficial
 
-    // 5. Preparar los datos del job y del cliente
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+    // ─────────────────────────────────────────────────────────────
+    // 5. Preparar datos del cliente y de la obra
+    // ─────────────────────────────────────────────────────────────
     const clienteObj = job.cliente || {};
-    const esEmpresa = Boolean(clienteObj.es_empresa);
+    const esEmpresa  = Boolean(clienteObj.es_empresa);
 
-    // Helper para rellenar campo de texto de forma segura con try-catch individual
-    const setField = (nombreCampo, valor) => {
-      try {
-        const field = form.getTextField(nombreCampo);
-        field.setText(String(valor || ''));
-      } catch (e) {
-        // Campo no encontrado o no es un TextField: lo registramos pero no bloqueamos
-        console.warn(`  ⚠️  Campo no encontrado o incompatible: "${nombreCampo}" → ${e.message}`);
-      }
+    // Nombre completo del titular (persona física o razón social)
+    const nombreCompleto = esEmpresa
+      ? (clienteObj.nombre || '')
+      : [
+          clienteObj.nombre        || '',
+          clienteObj.apellido1     || '',
+          clienteObj.apellido2     || ''
+        ].filter(Boolean).join(' ');
+
+    // Dirección del titular (vía + número + complementos)
+    const direccionTitular = [
+      clienteObj.tipo_via   || 'CALLE',
+      clienteObj.nombre_via || '',
+      clienteObj.numero     || '',
+      clienteObj.piso       ? `Piso ${clienteObj.piso}`   : '',
+      clienteObj.puerta     ? `Pta. ${clienteObj.puerta}` : ''
+    ].filter(Boolean).join(' ');
+
+    // Dirección de la obra
+    const direccionObra = [
+      job.tipo_via_obra   || 'CALLE',
+      job.nombre_via_obra || '',
+      job.numero_obra     || '',
+      job.piso_obra       ? `Piso ${job.piso_obra}`   : '',
+      job.puerta_obra     ? `Pta. ${job.puerta_obra}` : ''
+    ].filter(Boolean).join(' ');
+
+    // ─────────────────────────────────────────────────────────────
+    // 6. Helper drawText: estampa texto sobre la página indicada
+    //    ⚠️  pdf-lib: origen (0,0) = esquina INFERIOR IZQUIERDA
+    // ─────────────────────────────────────────────────────────────
+    const stamp = (page, texto, x, y, size = 9) => {
+      const val = String(texto || '').trim();
+      if (!val) return; // No dibuja si el valor está vacío
+      page.drawText(val, {
+        x,
+        y,
+        size,
+        font,
+        color: rgb(0, 0, 0)
+      });
     };
 
-    // Helper para marcar checkboxes de forma segura
-    const setCheckbox = (nombreCampo, valor) => {
-      try {
-        const field = form.getCheckBox(nombreCampo);
-        if (valor) { field.check(); } else { field.uncheck(); }
-      } catch (e) {
-        console.warn(`  ⚠️  Checkbox no encontrado: "${nombreCampo}" → ${e.message}`);
-      }
-    };
+    // ─────────────────────────────────────────────────────────────
+    // 7. INYECCIÓN DE DATOS EN PÁGINA 1 — Coordenadas aproximadas
+    //    sobre el formulario oficial CAM (ajustar con una prueba real).
+    //
+    //    REFERENCIA VISUAL (mapa de zona → y aproximada):
+    //    ┌──────────────────────────────────────┐
+    //    │  Cabecera institucional CAM          │ y ≈ 600+
+    //    │  NIF titular           (derecha)     │ y ≈ 565
+    //    │  Nombre / Razón Social               │ y ≈ 538
+    //    │  Dirección Titular                   │ y ≈ 485
+    //    │  Localidad Titular   | CP Titular    │ y ≈ 458
+    //    │  Teléfono | Email                    │ y ≈ 432
+    //    │  ─────────────────── (Separador) ─── │
+    //    │  Dirección Obra                      │ y ≈ 405
+    //    │  Localidad Obra      | CP Obra       │ y ≈ 378
+    //    │  Tipo Instalación                    │ y ≈ 350
+    //    └──────────────────────────────────────┘
+    // ─────────────────────────────────────────────────────────────
 
-    // 6. =========================================================
-    //    INYECCIÓN DE DATOS - Campos principales del titular
-    // =========================================================
-    // NOTA: Los nombres de campo reales se conocerán tras la inspección del console.log anterior.
-    // Los siguientes son los nombres comunes en el PDF oficial CAM; ajustar según output.
+    // — TITULAR / SOLICITANTE —
+    stamp(pag1, clienteObj.nif || '',    520, 565, 9); // NIF (campo estrecho, derecha)
+    stamp(pag1, nombreCompleto,          130, 538, 9); // Nombre / Razón Social
+    stamp(pag1, direccionTitular,        130, 485, 9); // Dirección fiscal completa
+    stamp(pag1, clienteObj.localidad || '', 130, 458, 9); // Localidad
+    stamp(pag1, clienteObj.cp || '',     480, 458, 9); // Código Postal
+    stamp(pag1, clienteObj.telefono || '', 130, 432, 9); // Teléfono
+    stamp(pag1, clienteObj.email || '',  320, 432, 9); // Email
 
-    // --- Titular / Solicitante ---
-    setField('nombre_titular', clienteObj.nombre || '');
-    setField('apellido1_titular', esEmpresa ? '' : (clienteObj.apellido1 || ''));
-    setField('apellido2_titular', esEmpresa ? '' : (clienteObj.apellido2 || ''));
-    setField('nif_titular', clienteObj.nif || '');
-    setField('nombre_referencia', clienteObj.nombre_referencia || '');
+    // — REPRESENTANTE LEGAL (sólo para personas jurídicas / empresas) —
+    if (esEmpresa) {
+      const nombreRep = [
+        clienteObj.representante_nombre    || '',
+        clienteObj.representante_apellido1 || '',
+        clienteObj.representante_apellido2 || ''
+      ].filter(Boolean).join(' ');
+      stamp(pag1, clienteObj.representante_nif || '', 520, 512, 9); // NIF Representante
+      stamp(pag1, nombreRep,                          130, 512, 9); // Nombre Representante
+    }
 
-    // --- Dirección del titular ---
-    setField('tipo_via_titular', clienteObj.tipo_via || 'CALLE');
-    setField('nombre_via_titular', clienteObj.nombre_via || '');
-    setField('num_titular', clienteObj.numero || '');
-    setField('bloque_titular', clienteObj.bloque || '');
-    setField('portal_titular', clienteObj.portal || '');
-    setField('escalera_titular', clienteObj.escalera || '');
-    setField('piso_titular', clienteObj.piso || '');
-    setField('puerta_titular', clienteObj.puerta || '');
-    setField('localidad_titular', clienteObj.localidad || '');
-    setField('provincia_titular', clienteObj.provincia || '');
-    setField('cp_titular', clienteObj.cp || '');
-    setField('telefono_titular', clienteObj.telefono || '');
-    setField('email_titular', clienteObj.email || '');
+    // — EMPLAZAMIENTO DE LA OBRA / INSTALACIÓN —
+    stamp(pag1, direccionObra,           130, 405, 9); // Dirección obra
+    stamp(pag1, job.localidad_obra || '', 130, 378, 9); // Localidad obra
+    stamp(pag1, job.cp_obra || '',       480, 378, 9); // CP obra
+    stamp(pag1, job.provincia_obra || '', 130, 352, 9); // Provincia obra
+    stamp(pag1, job.tipo_instalacion || '', 130, 325, 9); // Tipo de instalación
 
-    // --- Dirección de la obra / instalación ---
-    setField('tipo_via_obra', job.tipo_via_obra || 'CALLE');
-    setField('nombre_via_obra', job.nombre_via_obra || '');
-    setField('numero_obra', job.numero_obra || '');
-    setField('bloque_obra', job.bloque_obra || '');
-    setField('portal_obra', job.portal_obra || '');
-    setField('escalera_obra', job.escalera_obra || '');
-    setField('piso_obra', job.piso_obra || '');
-    setField('puerta_obra', job.puerta_obra || '');
-    setField('localidad_obra', job.localidad_obra || '');
-    setField('cp_obra', job.cp_obra || '');
-    setField('provincia_obra', job.provincia_obra || '');
-
-    // --- Representante legal (sólo si es empresa) ---
-    setField('nombre_rep', esEmpresa ? (clienteObj.representante_nombre || '') : '');
-    setField('apellido1_rep', esEmpresa ? (clienteObj.representante_apellido1 || '') : '');
-    setField('apellido2_rep', esEmpresa ? (clienteObj.representante_apellido2 || '') : '');
-    setField('nif_rep', esEmpresa ? (clienteObj.representante_nif || '') : '');
-
-    // --- Datos de la instalación ---
-    setField('tipo_instalacion', job.tipo_instalacion || '');
-    setField('fecha', job.fecha
+    // — FECHA (esquina inferior derecha de la primera sección) —
+    const fechaStr = job.fecha
       ? new Date(job.fecha).toLocaleDateString('es-ES')
-      : new Date().toLocaleDateString('es-ES')
-    );
+      : new Date().toLocaleDateString('es-ES');
+    stamp(pag1, fechaStr, 430, 298, 9);
 
-    // --- Checkbox empresa (si el PDF lo tiene) ---
-    setCheckbox('es_empresa', esEmpresa);
-
-    // 7. Aplanar el formulario (hace los campos no editables y los "quema" en el PDF)
-    form.flatten();
-
-    // 8. Serializar el PDF en bytes
+    // ─────────────────────────────────────────────────────────────
+    // 8. Serializar el PDF con todas las páginas intactas y enviarlo
+    //    ✓ Sin form.flatten() → estructura original preservada
+    //    ✓ Compatible con Adobe Acrobat, Chrome PDF viewer, etc.
+    // ─────────────────────────────────────────────────────────────
     const pdfBytes = await pdfDoc.save();
 
-    // 9. Configurar headers y enviar el PDF resultante como respuesta binaria
     const fileName = `Memoria_${job.id_trabajo || id}.pdf`;
 
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${fileName}"`,
-      'Access-Control-Expose-Headers': 'Content-Disposition'
-    });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
 
     return res.send(Buffer.from(pdfBytes));
 
   } catch (error) {
-    console.error('Error al procesar la plantilla PDF de Memoria:', error);
+    console.error('❌ Error al generar la Memoria Técnica PDF (drawText):', error);
     return res.status(500).json({
-      message: 'Error al procesar el PDF de Memoria Técnica.',
+      message: 'Error al generar la Memoria Técnica en PDF.',
       error: error.message
     });
   }
