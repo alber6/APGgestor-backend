@@ -1,8 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { generateJobDocument } = require('../controllers/documents');
+const { generateJobDocument, generateMemoriaPDF } = require('../controllers/documents');
 
-// Endpoint POST /api/jobs/:id/generate-docs
+// POST /api/jobs/:id/generate-docs → Genera la Solicitud en formato Word (.docx)
 router.post('/:id/generate-docs', generateJobDocument);
+
+// GET /api/jobs/:id/generate-memoria → Genera la Memoria Técnica oficial en PDF
+router.get('/:id/generate-memoria', generateMemoriaPDF);
 
 module.exports = router;
