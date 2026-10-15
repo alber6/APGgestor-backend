@@ -215,31 +215,17 @@ const generateMemoriaPDF = async (req, res) => {
 
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-    // ✅ TEXTO DE PRUEBA ROJO — confirma que pdf-lib escribe en el PDF
-    // Si este texto aparece en el PDF descargado, el problema es solo de coordenadas.
-    // Si NO aparece, el problema está en la carga/guardado del PDF o en la respuesta HTTP.
-    pag1.drawText('TEXTO DE PRUEBA - APGGESTOR', {
-      x: 150,
-      y: 750,
-      size: 14,
-      font,
-      color: rgb(1, 0, 0), // Rojo para que destaque
-    });
-
     // ─────────────────────────────────────────────────────────────
     // 5. Preparar datos del cliente y de la obra
     // ─────────────────────────────────────────────────────────────
     const clienteObj = job.cliente || {};
     const esEmpresa  = Boolean(clienteObj.es_empresa);
 
-    // Nombre completo del titular (persona física o razón social)
-    const nombreCompleto = esEmpresa
-      ? (clienteObj.nombre || '')
-      : [
-          clienteObj.nombre        || '',
-          clienteObj.apellido1     || '',
-          clienteObj.apellido2     || ''
-        ].filter(Boolean).join(' ');
+    // Nombre / Razón Social (campo propio en el impreso)
+    const nombreTitular = clienteObj.nombre || '';
+    // Apellidos — separados porque el impreso CAM los tiene en celdas independientes
+    const apellido1 = esEmpresa ? '' : (clienteObj.apellido1 || '');
+    const apellido2 = esEmpresa ? '' : (clienteObj.apellido2 || '');
 
     // Dirección del titular (vía + número + complementos)
     const direccionTitular = [
@@ -276,51 +262,30 @@ const generateMemoriaPDF = async (req, res) => {
     };
 
     // ─────────────────────────────────────────────────────────────
-    // 7. INYECCIÓN DE DATOS EN PÁGINA 1 — Coordenadas aproximadas
-    //    sobre el formulario oficial CAM (ajustar con una prueba real).
+    // 7. INYECCIÓN DE DATOS EN PÁGINA 1 — Coordenadas verificadas
+    //    con el impreso oficial de la Comunidad de Madrid.
     //
-    //    REFERENCIA VISUAL (mapa de zona → y aproximada):
+    //    MAPA VISUAL (y = coordenada vertical en pdf-lib, origen ABAJO):
     //    ┌──────────────────────────────────────┐
-    //    │  Cabecera institucional CAM          │ y ≈ 600+
-    //    │  NIF titular           (derecha)     │ y ≈ 565
-    //    │  Nombre / Razón Social               │ y ≈ 538
-    //    │  Dirección Titular                   │ y ≈ 485
-    //    │  Localidad Titular   | CP Titular    │ y ≈ 458
-    //    │  Teléfono | Email                    │ y ≈ 432
-    //    │  ─────────────────── (Separador) ─── │
-    //    │  Dirección Obra                      │ y ≈ 405
-    //    │  Localidad Obra      | CP Obra       │ y ≈ 378
-    //    │  Tipo Instalación                    │ y ≈ 350
+    //    │  Cabecera institucional CAM          │ y ≈ 650+
+    //    │  Nombre/R.Social  | NIF titular      │ y ≈ 625
+    //    │  Apellido 1º      | Apellido 2º      │ y ≈ 595
+    //    │  Dirección Titular (vía + número)   │ y ≈ 565
+    //    │  Localidad Titular | CP Titular      │ y ≈ 535
+    //    │  ────────────────── (Separador) ─── │
+    //    │  Dirección Obra                      │ y ≈ 475
+    //    │  Localidad Obra    | CP Obra         │ y ≈ 445
     //    └──────────────────────────────────────┘
     // ─────────────────────────────────────────────────────────────
 
-    // 🔍 DIAGNÓSTICO — Verificar que los datos llegan correctamente desde MongoDB
-    console.log('\n══════════════════════════════════════════════════════════');
-    console.log('🔍 DIAGNÓSTICO generateMemoriaPDF — DATOS RECIBIDOS DE BD');
-    console.log('══════════════════════════════════════════════════════════');
-    console.log('CLIENTE ENCONTRADO:', JSON.stringify(clienteObj, null, 2));
-    console.log('--------------------------------------------------------------');
-    console.log('DATOS OBRA:', JSON.stringify({
-      id_trabajo:      job.id_trabajo,
-      tipo_instalacion:job.tipo_instalacion,
-      tipo_via_obra:   job.tipo_via_obra,
-      nombre_via_obra: job.nombre_via_obra,
-      numero_obra:     job.numero_obra,
-      localidad_obra:  job.localidad_obra,
-      cp_obra:         job.cp_obra,
-      provincia_obra:  job.provincia_obra,
-      fecha:           job.fecha,
-    }, null, 2));
-    console.log('══════════════════════════════════════════════════════════\n');
-
     // — TITULAR / SOLICITANTE —
-    stamp(pag1, clienteObj.nif || '',    520, 565, 9); // NIF (campo estrecho, derecha)
-    stamp(pag1, nombreCompleto,          130, 538, 9); // Nombre / Razón Social
-    stamp(pag1, direccionTitular,        130, 485, 9); // Dirección fiscal completa
-    stamp(pag1, clienteObj.localidad || '', 130, 458, 9); // Localidad
-    stamp(pag1, clienteObj.cp || '',     480, 458, 9); // Código Postal
-    stamp(pag1, clienteObj.telefono || '', 130, 432, 9); // Teléfono
-    stamp(pag1, clienteObj.email || '',  320, 432, 9); // Email
+    stamp(pag1, nombreTitular,               130, 625, 9); // Nombre / Razón Social
+    stamp(pag1, clienteObj.nif || '',        450, 625, 9); // NIF (columna derecha)
+    stamp(pag1, apellido1,                   130, 595, 9); // Apellido 1º
+    stamp(pag1, apellido2,                   350, 595, 9); // Apellido 2º
+    stamp(pag1, direccionTitular,            130, 565, 9); // Dirección fiscal
+    stamp(pag1, clienteObj.localidad || '',  130, 535, 9); // Localidad
+    stamp(pag1, clienteObj.cp || '',         450, 535, 9); // Código Postal
 
     // — REPRESENTANTE LEGAL (sólo para personas jurídicas / empresas) —
     if (esEmpresa) {
@@ -329,22 +294,22 @@ const generateMemoriaPDF = async (req, res) => {
         clienteObj.representante_apellido1 || '',
         clienteObj.representante_apellido2 || ''
       ].filter(Boolean).join(' ');
-      stamp(pag1, clienteObj.representante_nif || '', 520, 512, 9); // NIF Representante
-      stamp(pag1, nombreRep,                          130, 512, 9); // Nombre Representante
+      stamp(pag1, nombreRep,                            130, 505, 9); // Nombre Representante
+      stamp(pag1, clienteObj.representante_nif || '',   450, 505, 9); // NIF Representante
     }
 
     // — EMPLAZAMIENTO DE LA OBRA / INSTALACIÓN —
-    stamp(pag1, direccionObra,           130, 405, 9); // Dirección obra
-    stamp(pag1, job.localidad_obra || '', 130, 378, 9); // Localidad obra
-    stamp(pag1, job.cp_obra || '',       480, 378, 9); // CP obra
-    stamp(pag1, job.provincia_obra || '', 130, 352, 9); // Provincia obra
-    stamp(pag1, job.tipo_instalacion || '', 130, 325, 9); // Tipo de instalación
+    stamp(pag1, direccionObra,               130, 475, 9); // Dirección obra
+    stamp(pag1, job.localidad_obra || '',    130, 445, 9); // Localidad obra
+    stamp(pag1, job.cp_obra || '',           450, 445, 9); // CP obra
+    stamp(pag1, job.provincia_obra || '',    130, 415, 9); // Provincia obra
+    stamp(pag1, job.tipo_instalacion || '',  130, 385, 9); // Tipo de instalación
 
-    // — FECHA (esquina inferior derecha de la primera sección) —
+    // — FECHA —
     const fechaStr = job.fecha
       ? new Date(job.fecha).toLocaleDateString('es-ES')
       : new Date().toLocaleDateString('es-ES');
-    stamp(pag1, fechaStr, 430, 298, 9);
+    stamp(pag1, fechaStr,                    430, 355, 9);
 
     // ─────────────────────────────────────────────────────────────
     // 8. Serializar el PDF con todas las páginas intactas y enviarlo
