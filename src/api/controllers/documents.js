@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const PizZip = require('pizzip');
 const Docxtemplater = require('docxtemplater');
-const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
+const { PDFDocument } = require('pdf-lib');
 const Job = require('../models/Job');
 
 /**
@@ -17,14 +17,14 @@ const generateJobDocument = async (req, res) => {
     const job = await Job.findById(id).populate('cliente');
 
     if (!job) {
-      return res.status(404).json({ 
-        message: 'Orden de trabajo u obra no encontrada.' 
+      return res.status(404).json({
+        message: 'Orden de trabajo u obra no encontrada.'
       });
     }
 
     // 2. Resolver la ruta estática hacia el archivo de plantilla Word (templates/solicitud.docx)
     let templatePath = path.resolve(__dirname, '../../../templates/solicitud.docx');
-    
+
     if (!fs.existsSync(templatePath)) {
       templatePath = path.join(process.cwd(), 'templates/solicitud.docx');
     }
@@ -55,7 +55,7 @@ const generateJobDocument = async (req, res) => {
       nif_titular: clienteObj.nif || '',
       nombre_referencia: clienteObj.nombre_referencia || '',
       nombre_referencia_titular: clienteObj.nombre_referencia || '',
-      
+
       // Desglose Granular Dirección Titular
       tipo_via: clienteObj.tipo_via || 'CALLE',
       tipo_via_titular: clienteObj.tipo_via || 'CALLE',
@@ -86,7 +86,7 @@ const generateJobDocument = async (req, res) => {
       puerta_obra: job.puerta_obra || '',
       direccion_obra: job.direccion_obra || `${job.tipo_via_obra || 'CALLE'} ${job.nombre_via_obra || ''} ${job.numero_obra || ''}`.trim(),
       localidad_obra: job.localidad_obra || '',
-      
+
       // Variables de representación legal (Entidad Jurídica / Empresa)
       es_empresa: esEmpresa ? 'SÍ' : 'NO',
       nif_rep: esEmpresa ? (clienteObj.representante_nif || '') : '',
@@ -149,26 +149,22 @@ const generateJobDocument = async (req, res) => {
 
   } catch (error) {
     console.error('Error al procesar la plantilla Word docxtemplater:', error);
-    return res.status(500).json({ 
-      message: 'Error al procesar la plantilla Word para la generación del documento.', 
-      error: error.message 
+    return res.status(500).json({
+      message: 'Error al procesar la plantilla Word para la generación del documento.',
+      error: error.message
     });
   }
 };
 
 /**
  * Genera la Memoria Técnica oficial en PDF (Comunidad de Madrid).
- * Estrategia: escritura directa por coordenadas (drawText) sobre el PDF
- * oficial CAM. NO se usa getForm/flatten para evitar corrupción de páginas.
+ * Estrategia: AcroForm nativo — rellena los campos interactivos del PDF oficial.
  * GET /api/jobs/:id/generate-memoria
  */
 const generateMemoriaPDF = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // ─────────────────────────────────────────────────────────────
-    // 1. Consultar MongoDB: Obra + cliente asociado
-    // ─────────────────────────────────────────────────────────────
     const job = await Job.findById(id).populate('cliente');
 
     if (!job) {
@@ -177,9 +173,6 @@ const generateMemoriaPDF = async (req, res) => {
       });
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // 2. Resolver ruta de la plantilla oficial templates/memoria.pdf
-    // ─────────────────────────────────────────────────────────────
     let templatePath = path.resolve(__dirname, '../../../templates/memoria.pdf');
     if (!fs.existsSync(templatePath)) {
       templatePath = path.join(process.cwd(), 'templates/memoria.pdf');
@@ -190,138 +183,108 @@ const generateMemoriaPDF = async (req, res) => {
       });
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // 3. Cargar PDF con pdf-lib
-    // ─────────────────────────────────────────────────────────────
     const bufferOriginal = fs.readFileSync(templatePath);
     const pdfDoc = await PDFDocument.load(bufferOriginal, { ignoreEncryption: true });
+    const form = pdfDoc.getForm();
 
-    // ─────────────────────────────────────────────────────────────
-    // 4. Página 1 + fuente Helvetica embebida
-    // ─────────────────────────────────────────────────────────────
-    const pages = pdfDoc.getPages();
-    const pag1  = pages[0];
-    const font  = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    // Diagnóstico en consola para ver los nombres reales de los campos del PDF oficial
+    const camposDetectados = form.getFields().map(f => ({
+      nombre: f.getName(),
+      tipo: f.constructor.name,
+    }));
+    console.log('\n══════════════════════════════════════════════════════');
+    console.log('📋 CAMPOS DEL FORMULARIO PDF — MEMORIA CAM');
+    console.log('══════════════════════════════════════════════════════');
+    camposDetectados.forEach(({ nombre, tipo }, i) => {
+      console.log(`  [${String(i + 1).padStart(3, '0')}] [${tipo.padEnd(18)}] → "${nombre}"`);
+    });
+    console.log(`  Total: ${camposDetectados.length} campos`);
+    console.log('══════════════════════════════════════════════════════\n');
 
-    // ─────────────────────────────────────────────────────────────
-    // 5. Preparar datos con valores por defecto seguros
-    // ─────────────────────────────────────────────────────────────
-    const clienteObj   = job.cliente || {};
-    const esEmpresa    = Boolean(clienteObj.es_empresa);
+    const clienteObj = job.cliente || {};
+    const esEmpresa = Boolean(clienteObj.es_empresa);
 
-    // Titular
-    const nombreTitular   = clienteObj.nombre    || '';
-    const apellido1       = esEmpresa ? '' : (clienteObj.apellido1 || '');
-    const apellido2       = esEmpresa ? '' : (clienteObj.apellido2 || '');
-    const nifTitular      = clienteObj.nif        || '';
-    const telefonoTit     = clienteObj.telefono   || '';
-    const emailTit        = clienteObj.email      || '';
-    const localidadTit    = clienteObj.localidad  || '';
-    const cpTit           = clienteObj.cp         || '';
+    const nombreTitular = clienteObj.nombre || '';
+    const apellido1 = esEmpresa ? '' : (clienteObj.apellido1 || '');
+    const apellido2 = esEmpresa ? '' : (clienteObj.apellido2 || '');
+    const nifTitular = clienteObj.nif || '';
+    const telefonoTit = clienteObj.telefono || '';
+    const emailTit = clienteObj.email || '';
+    const localidadTit = clienteObj.localidad || '';
+    const cpTit = clienteObj.cp || '';
+    const provinciaTit = clienteObj.provincia || '';
 
-    // Dirección fiscal (tipo vía + nombre + nº + complementos)
     const direccionTitular = [
-      clienteObj.tipo_via   || 'CALLE',
+      clienteObj.tipo_via || 'CALLE',
       clienteObj.nombre_via || '',
-      clienteObj.numero     || '',
-      clienteObj.piso       ? `Piso ${clienteObj.piso}`   : '',
-      clienteObj.puerta     ? `Pta. ${clienteObj.puerta}` : ''
+      clienteObj.numero || '',
+      clienteObj.bloque ? `Blq. ${clienteObj.bloque}` : '',
+      clienteObj.escalera ? `Esc. ${clienteObj.escalera}` : '',
+      clienteObj.piso ? `Piso ${clienteObj.piso}` : '',
+      clienteObj.puerta ? `Pta. ${clienteObj.puerta}` : '',
     ].filter(Boolean).join(' ');
 
-    // Representante legal (solo empresas)
     const nombreRep = esEmpresa
       ? [
-          clienteObj.representante_nombre    || '',
-          clienteObj.representante_apellido1 || '',
-          clienteObj.representante_apellido2 || ''
-        ].filter(Boolean).join(' ')
+        clienteObj.representante_nombre || '',
+        clienteObj.representante_apellido1 || '',
+        clienteObj.representante_apellido2 || '',
+      ].filter(Boolean).join(' ')
       : '';
     const nifRep = esEmpresa ? (clienteObj.representante_nif || '') : '';
 
-    // Emplazamiento obra
     const direccionObra = [
-      job.tipo_via_obra   || 'CALLE',
+      job.tipo_via_obra || 'CALLE',
       job.nombre_via_obra || '',
-      job.numero_obra     || '',
-      job.piso_obra       ? `Piso ${job.piso_obra}`   : '',
-      job.puerta_obra     ? `Pta. ${job.puerta_obra}` : ''
+      job.numero_obra || '',
+      job.bloque_obra ? `Blq. ${job.bloque_obra}` : '',
+      job.escalera_obra ? `Esc. ${job.escalera_obra}` : '',
+      job.piso_obra ? `Piso ${job.piso_obra}` : '',
+      job.puerta_obra ? `Pta. ${job.puerta_obra}` : '',
     ].filter(Boolean).join(' ');
 
-    const localidadObra   = job.localidad_obra    || '';
-    const cpObra          = job.cp_obra           || '';
-    const provinciaObra   = job.provincia_obra    || '';
-    const tipoInstalacion = job.tipo_instalacion  || '';
+    const localidadObra = job.localidad_obra || '';
+    const cpObra = job.cp_obra || '';
+    const provinciaObra = job.provincia_obra || '';
+    const tipoInstalacion = job.tipo_instalacion || '';
 
-    // Fecha
     const fechaStr = job.fecha
       ? new Date(job.fecha).toLocaleDateString('es-ES')
       : new Date().toLocaleDateString('es-ES');
 
-    // ─────────────────────────────────────────────────────────────
-    // 6. Helper stamp — drawText seguro, omite valores vacíos
-    //    ⚠️  pdf-lib: (0,0) = esquina INFERIOR IZQUIERDA de la página
-    // ─────────────────────────────────────────────────────────────
-    const stamp = (page, texto, x, y, size = 9) => {
-      const val = String(texto || '').trim();
-      if (!val) return;
-      page.drawText(val, { x, y, size, font, color: rgb(0, 0, 0) });
+    const setField = (nombre, valor) => {
+      try {
+        const field = form.getTextField(nombre);
+        field.setText(String(valor || ''));
+      } catch (e) {
+        console.warn(`  ⚠️  Campo no encontrado o tipo incorrecto: "${nombre}"`);
+      }
     };
 
-    // ─────────────────────────────────────────────────────────────
-    // 7. INYECCIÓN DE DATOS — Página 1
-    //    Coordenadas calibradas sobre el impreso oficial CAM.
-    //    A4 vertical ≈ 595 × 842 pt  |  (0,0) = esquina inferior izq.
-    //
-    //    ┌────────────────────────────────────────────────────┐
-    //    │  Cabecera institucional CAM              y ≈ 700+ │
-    //    │  Nombre/R.Social (x:130) │ NIF (x:450)  y = 625  │
-    //    │  Apellido 1º (x:130)  │ Apellido 2º(x:350) y=595 │
-    //    │  Dirección Titular (x:130)               y = 565  │
-    //    │  Localidad (x:130)    │ CP (x:450)       y = 535  │
-    //    │  Teléfono (x:130)     │ Email (x:310)    y = 505  │
-    //    │  ───────────────── (Separador) ─────────────────  │
-    //    │  Representante (x:130) │ NIF Rep (x:450) y = 475  │
-    //    │  ───────────────── (Separador) ─────────────────  │
-    //    │  Dirección Obra (x:130)                  y = 445  │
-    //    │  Localidad Obra(x:130) │ CP Obra (x:450) y = 415  │
-    //    │  Provincia Obra (x:130)                  y = 385  │
-    //    │  Tipo Instalación (x:130)                y = 355  │
-    //    │  Fecha (x:430)                           y = 325  │
-    //    └────────────────────────────────────────────────────┘
-    // ─────────────────────────────────────────────────────────────
+    // Rellenar campos del formulario oficial CAM
+    setField('TITULAR_NOMBRE', nombreTitular);
+    setField('TITULAR_APELLIDO1', apellido1);
+    setField('TITULAR_APELLIDO2', apellido2);
+    setField('TITULAR_NIF', nifTitular);
+    setField('TITULAR_DIR', direccionTitular);
+    setField('TITULAR_LOC', localidadTit);
+    setField('TITULAR_CP', cpTit);
+    setField('TITULAR_PROV', provinciaTit);
+    setField('TITULAR_TEL', telefonoTit);
+    setField('TITULAR_EMAIL', emailTit);
 
-    // BLOQUE A — TITULAR
-    stamp(pag1, nombreTitular,    130, 625);
-    stamp(pag1, nifTitular,       450, 625);
-    stamp(pag1, apellido1,        130, 595);
-    stamp(pag1, apellido2,        350, 595);
-    stamp(pag1, direccionTitular, 130, 565);
-    stamp(pag1, localidadTit,     130, 535);
-    stamp(pag1, cpTit,            450, 535);
-    stamp(pag1, telefonoTit,      130, 505);
-    stamp(pag1, emailTit,         310, 505);
-
-    // BLOQUE B — REPRESENTANTE LEGAL (solo empresas)
     if (esEmpresa) {
-      stamp(pag1, nombreRep, 130, 475);
-      stamp(pag1, nifRep,    450, 475);
+      setField('REP_NOMBRE', nombreRep);
+      setField('REP_NIF', nifRep);
     }
 
-    // BLOQUE C — EMPLAZAMIENTO DE LA OBRA
-    stamp(pag1, direccionObra,    130, 445);
-    stamp(pag1, localidadObra,    130, 415);
-    stamp(pag1, cpObra,           450, 415);
-    stamp(pag1, provinciaObra,    130, 385);
-    stamp(pag1, tipoInstalacion,  130, 355);
+    setField('OBRA_DIR', direccionObra);
+    setField('OBRA_LOC', localidadObra);
+    setField('OBRA_CP', cpObra);
+    setField('OBRA_PROV', provinciaObra);
+    setField('OBRA_TIPO', tipoInstalacion);
+    setField('FECHA', fechaStr);
 
-    // BLOQUE D — FECHA
-    stamp(pag1, fechaStr,         430, 325);
-
-    // ─────────────────────────────────────────────────────────────
-    // 8. Serializar y enviar
-    //    ✓ Sin form.flatten() → estructura original preservada
-    //    ✓ Compatible con Adobe, Chrome, Foxit, etc.
-    // ─────────────────────────────────────────────────────────────
     const pdfBytes = await pdfDoc.save();
     const fileName = `Memoria_${job.id_trabajo || id}.pdf`;
 
@@ -344,4 +307,3 @@ module.exports = {
   generateJobDocument,
   generateMemoriaPDF
 };
-
