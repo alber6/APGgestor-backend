@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const PizZip = require('pizzip');
 const Docxtemplater = require('docxtemplater');
-const { PDFDocument } = require('pdf-lib');
+const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
 const Job = require('../models/Job');
 
 /**
@@ -162,15 +162,13 @@ const generateJobDocument = async (req, res) => {
  * GET /api/jobs/:id/generate-memoria
  */
 const generateMemoriaPDF = async (req, res) => {
+  console.log("🟢 GENERANDO MEMORIA POR COORDENADAS PARA ID:", req.params.id);
   try {
     const { id } = req.params;
 
     const job = await Job.findById(id).populate('cliente');
-
     if (!job) {
-      return res.status(404).json({
-        message: 'Orden de trabajo u obra no encontrada.'
-      });
+      return res.status(404).json({ message: 'Orden de trabajo u obra no encontrada.' });
     }
 
     let templatePath = path.resolve(__dirname, '../../../templates/memoria.pdf');
@@ -178,32 +176,34 @@ const generateMemoriaPDF = async (req, res) => {
       templatePath = path.join(process.cwd(), 'templates/memoria.pdf');
     }
     if (!fs.existsSync(templatePath)) {
-      return res.status(500).json({
-        message: 'No se encontró el archivo templates/memoria.pdf en el servidor.'
-      });
+      return res.status(500).json({ message: 'No se encontró el archivo templates/memoria.pdf' });
     }
 
     const bufferOriginal = fs.readFileSync(templatePath);
     const pdfDoc = await PDFDocument.load(bufferOriginal, { ignoreEncryption: true });
-    const form = pdfDoc.getForm();
 
-    // Diagnóstico en consola para ver los nombres reales de los campos del PDF oficial
-    const camposDetectados = form.getFields().map(f => ({
-      nombre: f.getName(),
-      tipo: f.constructor.name,
-    }));
-    console.log('\n══════════════════════════════════════════════════════');
-    console.log('📋 CAMPOS DEL FORMULARIO PDF — MEMORIA CAM');
-    console.log('══════════════════════════════════════════════════════');
-    camposDetectados.forEach(({ nombre, tipo }, i) => {
-      console.log(`  [${String(i + 1).padStart(3, '0')}] [${tipo.padEnd(18)}] → "${nombre}"`);
+    // Obtenemos la primera página y la fuente estándar
+    const pages = pdfDoc.getPages();
+    const pag1 = pages[0];
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+
+    const form = pdfDoc.getForm();
+    const fields = form.getFields();
+
+    console.log("=== COORDENADAS EXACTAS DE CADA CAJA ===");
+    fields.forEach(field => {
+      const widgets = field.acroField.getWidgets();
+      widgets.forEach(widget => {
+        const rect = widget.getRectangle();
+        console.log(`Caja "${field.getName()}" -> x: ${Math.round(rect.x)}, y: ${Math.round(rect.y)}`);
+      });
     });
-    console.log(`  Total: ${camposDetectados.length} campos`);
-    console.log('══════════════════════════════════════════════════════\n');
 
     const clienteObj = job.cliente || {};
     const esEmpresa = Boolean(clienteObj.es_empresa);
 
+    // Preparar datos
     const nombreTitular = clienteObj.nombre || '';
     const apellido1 = esEmpresa ? '' : (clienteObj.apellido1 || '');
     const apellido2 = esEmpresa ? '' : (clienteObj.apellido2 || '');
@@ -212,78 +212,53 @@ const generateMemoriaPDF = async (req, res) => {
     const emailTit = clienteObj.email || '';
     const localidadTit = clienteObj.localidad || '';
     const cpTit = clienteObj.cp || '';
-    const provinciaTit = clienteObj.provincia || '';
 
     const direccionTitular = [
       clienteObj.tipo_via || 'CALLE',
       clienteObj.nombre_via || '',
       clienteObj.numero || '',
-      clienteObj.bloque ? `Blq. ${clienteObj.bloque}` : '',
-      clienteObj.escalera ? `Esc. ${clienteObj.escalera}` : '',
       clienteObj.piso ? `Piso ${clienteObj.piso}` : '',
-      clienteObj.puerta ? `Pta. ${clienteObj.puerta}` : '',
+      clienteObj.puerta ? `Pta. ${clienteObj.puerta}` : ''
     ].filter(Boolean).join(' ');
-
-    const nombreRep = esEmpresa
-      ? [
-        clienteObj.representante_nombre || '',
-        clienteObj.representante_apellido1 || '',
-        clienteObj.representante_apellido2 || '',
-      ].filter(Boolean).join(' ')
-      : '';
-    const nifRep = esEmpresa ? (clienteObj.representante_nif || '') : '';
 
     const direccionObra = [
       job.tipo_via_obra || 'CALLE',
       job.nombre_via_obra || '',
       job.numero_obra || '',
-      job.bloque_obra ? `Blq. ${job.bloque_obra}` : '',
-      job.escalera_obra ? `Esc. ${job.escalera_obra}` : '',
       job.piso_obra ? `Piso ${job.piso_obra}` : '',
-      job.puerta_obra ? `Pta. ${job.puerta_obra}` : '',
+      job.puerta_obra ? `Pta. ${job.puerta_obra}` : ''
     ].filter(Boolean).join(' ');
 
     const localidadObra = job.localidad_obra || '';
     const cpObra = job.cp_obra || '';
     const provinciaObra = job.provincia_obra || '';
     const tipoInstalacion = job.tipo_instalacion || '';
-
     const fechaStr = job.fecha
       ? new Date(job.fecha).toLocaleDateString('es-ES')
       : new Date().toLocaleDateString('es-ES');
 
-    const setField = (nombre, valor) => {
-      try {
-        const field = form.getTextField(nombre);
-        field.setText(String(valor || ''));
-      } catch (e) {
-        console.warn(`  ⚠️  Campo no encontrado o tipo incorrecto: "${nombre}"`);
-      }
+    // Helper para pintar texto
+    const stamp = (texto, x, y, size = 9) => {
+      const val = String(texto || '').trim();
+      if (!val) return;
+      pag1.drawText(val, { x, y, size, font, color: rgb(0, 0, 0) });
     };
 
-    // Rellenar campos del formulario oficial CAM
-    setField('TITULAR_NOMBRE', nombreTitular);
-    setField('TITULAR_APELLIDO1', apellido1);
-    setField('TITULAR_APELLIDO2', apellido2);
-    setField('TITULAR_NIF', nifTitular);
-    setField('TITULAR_DIR', direccionTitular);
-    setField('TITULAR_LOC', localidadTit);
-    setField('TITULAR_CP', cpTit);
-    setField('TITULAR_PROV', provinciaTit);
-    setField('TITULAR_TEL', telefonoTit);
-    setField('TITULAR_EMAIL', emailTit);
+    // 📍 DIBUJAR DATOS EN SUS COORDENADAS (Página 1)
+    // BLOQUE TITULAR
+    stamp(nombreTitular, 235, 645); // Nombre / Razón Social
+    stamp(nifTitular, 340, 658); // NIF
+    stamp(apellido1, 200, 631); // Apellido 1º
+    stamp(apellido2, 340, 631); // Apellido 2º
+    stamp(direccionTitular, 200, 618); // Dirección del titular
+    stamp(localidadTit, 200, 606); // Localidad
+    stamp(cpTit, 385, 606); // Código Postal
 
-    if (esEmpresa) {
-      setField('REP_NOMBRE', nombreRep);
-      setField('REP_NIF', nifRep);
-    }
-
-    setField('OBRA_DIR', direccionObra);
-    setField('OBRA_LOC', localidadObra);
-    setField('OBRA_CP', cpObra);
-    setField('OBRA_PROV', provinciaObra);
-    setField('OBRA_TIPO', tipoInstalacion);
-    setField('FECHA', fechaStr);
+    // BLOQUE EMPLAZAMIENTO OBRA
+    stamp(direccionObra, 200, 582); // Dirección de la obra
+    stamp(localidadObra, 200, 570); // Localidad de la obra
+    stamp(cpObra, 385, 570); // CP de la obra
+    stamp(tipoInstalacion, 200, 558); // Tipo de instalación
 
     const pdfBytes = await pdfDoc.save();
     const fileName = `Memoria_${job.id_trabajo || id}.pdf`;
@@ -295,13 +270,11 @@ const generateMemoriaPDF = async (req, res) => {
     return res.send(Buffer.from(pdfBytes));
 
   } catch (error) {
-    console.error('❌ Error al generar la Memoria Técnica PDF:', error);
-    return res.status(500).json({
-      message: 'Error al generar la Memoria Técnica en PDF.',
-      error: error.message
-    });
+    console.error('❌ Error al generar la Memoria PDF:', error);
+    return res.status(500).json({ message: 'Error al generar la Memoria PDF', error: error.message });
   }
 };
+
 
 module.exports = {
   generateJobDocument,
