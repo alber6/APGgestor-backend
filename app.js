@@ -15,9 +15,12 @@ app.use('/api/customers', require('./src/api/routes/customers'));
 app.use('/api/jobs', require('./src/api/routes/documents'));
 app.use('/api/jobs', require('./src/api/routes/jobs'));
 app.use('/api/auth', require('./src/api/routes/auth'));
-// ruta de prueba para ver que el servidor responde
-app.get('api/health', (req, res) => {
-    res.json({status: 'online', message: 'servidor electrogestor funcionando'});
+app.use('/api/time-records', require('./src/api/routes/timeRecords'));
+app.use('/api/leave-requests', require('./src/api/routes/leaveRequests'));
+
+// Ruta de prueba corregida con la barra "/"
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'online', message: 'servidor electrogestor funcionando' });
 });
 
 // conexión a mongoose

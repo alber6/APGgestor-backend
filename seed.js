@@ -4,6 +4,7 @@ require('dotenv').config();
 const User = require('./src/api/models/User');
 const Customer = require('./src/api/models/Customer');
 const Job = require('./src/api/models/Job');
+const TimeRecord = require('./src/api/models/TimeRecord');
 
 mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log('🌱 Conectado a mongo para sembrar datos JSON'))
@@ -14,13 +15,14 @@ const seedDataBase = async () => {
         await Customer.deleteMany({});
         await Job.deleteMany({});
         await User.deleteMany({});
+        await TimeRecord.deleteMany({});
         console.log('🧹 Base de datos limpia, colecciones vacías.');
 
         // Crear Usuarios (Admins y Operarios)
         const usersData = [
-            { nombre: 'Admin', password: 'admin', rol: 'admin' },
-            { nombre: 'Carlos Gómez', password: '1234', rol: 'operario' },
-            { nombre: 'Manuel López', password: '1234', rol: 'operario' }
+            { nombre: 'Admin', password: 'admin', rol: 'admin', dni: '00000000T' },
+            { nombre: 'Carlos Gómez', password: '1234', rol: 'operario', dni: '47289192K' },
+            { nombre: 'Manuel López', password: '1234', rol: 'operario', dni: '52938174M' }
         ];
         const users = await User.insertMany(usersData);
         console.log(`🔒 Éxito: ${users.length} Usuarios iniciales creados.`);
@@ -93,6 +95,79 @@ const seedDataBase = async () => {
         ];
         await Job.insertMany(jobsData);
         console.log(`🚀 Éxito: ${jobsData.length} Órdenes de trabajo creadas.`);
+
+        // Sembrar Fichajes de Ejemplo para Demostración e Inspección de Trabajo
+        if (operarioCarlos && users[0]) {
+            const hoy = new Date().toISOString().split('T')[0];
+            const timeRecordsData = [
+                {
+                    usuario: operarioCarlos._id,
+                    tipo: 'ENTRADA',
+                    timestamp: new Date(`${hoy}T08:00:00.000Z`),
+                    fecha: hoy,
+                    geolocalizacion: {
+                        latitud: 40.4168,
+                        longitud: -3.7038,
+                        precision: 10,
+                        capturada: true,
+                        direccionAprox: 'Puerta del Sol, Madrid'
+                    },
+                    dispositivo: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5)',
+                    origen: 'dispositivo',
+                    observaciones: 'Entrada en punto al inicio de jornada.'
+                },
+                {
+                    usuario: operarioCarlos._id,
+                    tipo: 'PAUSA_INICIO',
+                    timestamp: new Date(`${hoy}T13:30:00.000Z`),
+                    fecha: hoy,
+                    geolocalizacion: {
+                        latitud: 40.4170,
+                        longitud: -3.7035,
+                        precision: 12,
+                        capturada: true,
+                        direccionAprox: 'Madrid Centro'
+                    },
+                    dispositivo: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5)',
+                    origen: 'dispositivo',
+                    observaciones: 'Pausa para almuerzo'
+                },
+                {
+                    usuario: operarioCarlos._id,
+                    tipo: 'PAUSA_FIN',
+                    timestamp: new Date(`${hoy}T14:15:00.000Z`),
+                    fecha: hoy,
+                    geolocalizacion: {
+                        latitud: 40.4170,
+                        longitud: -3.7035,
+                        precision: 12,
+                        capturada: true,
+                        direccionAprox: 'Madrid Centro'
+                    },
+                    dispositivo: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5)',
+                    origen: 'dispositivo',
+                    observaciones: 'Fin de almuerzo y reanudación'
+                },
+                {
+                    usuario: operarioCarlos._id,
+                    tipo: 'SALIDA',
+                    timestamp: new Date(`${hoy}T17:15:00.000Z`),
+                    fecha: hoy,
+                    geolocalizacion: {
+                        latitud: 40.4168,
+                        longitud: -3.7038,
+                        precision: 10,
+                        capturada: true,
+                        direccionAprox: 'Puerta del Sol, Madrid'
+                    },
+                    dispositivo: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5)',
+                    origen: 'dispositivo',
+                    observaciones: 'Fin de jornada laboral'
+                }
+            ];
+            await TimeRecord.insertMany(timeRecordsData);
+            console.log(`⏰ Éxito: ${timeRecordsData.length} Registros horarios iniciales sembrados.`);
+        }
 
         mongoose.connection.close();
         console.log('✅ Sembrado completado. Conexión cerrada.');

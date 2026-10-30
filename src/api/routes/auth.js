@@ -24,6 +24,10 @@ router.post('/login', async (req, res) => {
       return nombreBD === nombreFormulario;
     });
 
+    if (!user) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+
     // Comprobamos contraseña
     if (user.password !== password) {
       return res.status(401).json({ message: 'Contraseña incorrecta' });
