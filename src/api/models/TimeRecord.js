@@ -59,9 +59,9 @@ const TimeRecordSchema = new mongoose.Schema({
         type: String,
         default: 'Navegador Web'
     },
-    origen: {
+        origen: {
         type: String,
-        enum: ['dispositivo', 'manual_admin'],
+        enum: ['dispositivo', 'manual_admin', 'manual_operario'],
         default: 'dispositivo'
     },
     observaciones: {

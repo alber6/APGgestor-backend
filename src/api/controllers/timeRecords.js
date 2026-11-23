@@ -174,7 +174,7 @@ const calcularJornadas = (registros, permisosAprobados = []) => {
 const punch = async (req, res) => {
   try {
     const usuarioId = req.user._id;
-    const { tipo, geolocalizacion, observaciones } = req.body;
+    const { tipo, geolocalizacion, observaciones, fechaManual, horaManual } = req.body;
 
     const tiposValidos = ['ENTRADA', 'PAUSA_INICIO', 'PAUSA_FIN', 'SALIDA'];
     if (!tipo || !tiposValidos.includes(tipo)) {
@@ -184,29 +184,61 @@ const punch = async (req, res) => {
     }
 
     const now = new Date();
-    const fechaHoy = getMadridDateString(now);
+    let timestamp = now;
+    let fecha = getMadridDateString(now);
+    let origen = 'dispositivo';
+    let localObservaciones = observaciones || '';
+
+    // Lógica para cierre de jornada anterior (PENDIENTE_CIERRE_ANTERIOR)
+    if (tipo === 'SALIDA' && fechaManual && horaManual) {
+      // Construir el timestamp combinando la fecha del olvido y la hora indicada
+      const [year, month, day] = fechaManual.split('-').map(Number);
+      const [hours, minutes] = horaManual.split(':').map(Number);
+      
+      timestamp = new Date(year, month - 1, day, hours, minutes);
+      fecha = fechaManual;
+      origen = 'manual_operario';
+      localObservaciones = observaciones || 'Cierre de jornada anterior olvidado';
+
+      // Validaciones de seguridad legal
+      const ultimoRegistro = await TimeRecord.findOne({ usuario: usuarioId }).sort({ timestamp: -1 });
+      
+      if (!ultimoRegistro || ultimoRegistro.tipo === 'SALIDA') {
+        return res.status(400).json({ message: 'No hay ninguna jornada abierta para cerrar.' });
+      }
+
+      if (timestamp <= ultimoRegistro.timestamp) {
+        return res.status(400).json({ 
+          message: `La hora de salida no puede ser anterior o igual a la de entrada (${formatMadridTime(ultimoRegistro.timestamp)}).` 
+        });
+      }
+
+      if (timestamp > now) {
+        return res.status(400).json({ message: 'No puedes registrar una salida en el futuro.' });
+      }
+    }
 
     const nuevoFichaje = new TimeRecord({
       usuario: usuarioId,
       tipo,
-      timestamp: now,
-      fecha: fechaHoy,
+      timestamp,
+      fecha,
       geolocalizacion: {
         latitud: geolocalizacion?.latitud || null,
         longitud: geolocalizacion?.longitud || null,
         precision: geolocalizacion?.precision || null,
         capturada: Boolean(geolocalizacion?.latitud && geolocalizacion?.longitud),
-        direccionAprox: geolocalizacion?.direccionAprox || ''
+        direccionAprox: geolocalizacion?.direccionAprox || (fechaManual ? 'Cierre manual de jornada anterior' : '')
       },
       dispositivo: req.headers['user-agent'] || 'Dispositivo Móvil / Web',
-      origen: 'dispositivo',
-      observaciones: observaciones || ''
+      origen,
+      observaciones: localObservaciones
     });
 
     await nuevoFichaje.save();
 
     return res.status(201).json({
-      message: `Fichaje de ${tipo} registrado con éxito`,
+      message: fechaManual ? 'Jornada anterior cerrada correctamente' : `Fichaje de ${tipo} registrado con éxito`,
       fichaje: nuevoFichaje
     });
   } catch (error) {
@@ -224,24 +256,41 @@ const punch = async (req, res) => {
 const getCurrentStatus = async (req, res) => {
   try {
     const usuarioId = req.user._id;
-    const fechaHoy = getMadridDateString(new Date());
+    const now = new Date();
+    const fechaHoy = getMadridDateString(now);
 
-    const registrosHoy = await TimeRecord.find({
+    // Obtener el último registro absoluto del usuario para detectar jornadas abiertas de días anteriores
+    const ultimoRegistroAbsoluto = await TimeRecord.findOne({ usuario: usuarioId }).sort({ timestamp: -1 });
+
+    let estado = 'FUERA'; // 'TRABAJANDO', 'EN_PAUSA', 'FUERA', 'PENDIENTE_CIERRE_ANTERIOR'
+    let ultimoRegistro = null;
+    let registrosHoy = await TimeRecord.find({
       usuario: usuarioId,
       fecha: fechaHoy
     }).sort({ timestamp: 1 });
 
-    let estado = 'FUERA'; // 'TRABAJANDO', 'EN_PAUSA', 'FUERA'
-    let ultimoRegistro = null;
+    if (ultimoRegistroAbsoluto) {
+      // 1. Detectar si hay un fichaje abierto de un día anterior (Bloqueo legal)
+      if (ultimoRegistroAbsoluto.tipo !== 'SALIDA' && ultimoRegistroAbsoluto.fecha !== fechaHoy) {
+        return res.json({
+          estado: 'PENDIENTE_CIERRE_ANTERIOR',
+          ultimoRegistro: ultimoRegistroAbsoluto,
+          registrosHoy: [],
+          minutosTrabajadosHoy: 0,
+          horasTrabajadasHoy: "0.00"
+        });
+      }
 
-    if (registrosHoy.length > 0) {
-      ultimoRegistro = registrosHoy[registrosHoy.length - 1];
-      if (ultimoRegistro.tipo === 'ENTRADA' || ultimoRegistro.tipo === 'PAUSA_FIN') {
-        estado = 'TRABAJANDO';
-      } else if (ultimoRegistro.tipo === 'PAUSA_INICIO') {
-        estado = 'EN_PAUSA';
-      } else if (ultimoRegistro.tipo === 'SALIDA') {
-        estado = 'FUERA';
+      // 2. Lógica normal para el día de hoy
+      if (ultimoRegistroAbsoluto.fecha === fechaHoy) {
+        ultimoRegistro = ultimoRegistroAbsoluto;
+        if (ultimoRegistro.tipo === 'ENTRADA' || ultimoRegistro.tipo === 'PAUSA_FIN') {
+          estado = 'TRABAJANDO';
+        } else if (ultimoRegistro.tipo === 'PAUSA_INICIO') {
+          estado = 'EN_PAUSA';
+        } else if (ultimoRegistro.tipo === 'SALIDA') {
+          estado = 'FUERA';
+        }
       }
     }
 
@@ -262,7 +311,7 @@ const getCurrentStatus = async (req, res) => {
 
     // Si actualmente está trabajando, sumar hasta el momento actual
     if (estado === 'TRABAJANDO' && entradaMomento) {
-      minutosHoy += (new Date() - entradaMomento) / (1000 * 60);
+      minutosHoy += (now - entradaMomento) / (1000 * 60);
     }
 
     // Comprobar si el usuario tiene vacaciones o permiso APROBADO para el día de hoy
@@ -399,8 +448,8 @@ const createManualRecord = async (req, res) => {
       return res.status(404).json({ message: 'Trabajador no encontrado.' });
     }
 
-    const fechaFichaje = timestamp ? new Date(timestamp) : new Date();
-    const fechaStr = fecha || getMadridDateString(fechaFichaje);
+        const fechaFichaje = timestamp ? new Date(timestamp) : new Date();
+    const fechaStr = getMadridDateString(fechaFichaje); // Forzar sincronización para evitar bug de horas a 0
 
     const nuevoFichaje = new TimeRecord({
       usuario: usuarioId,
@@ -472,7 +521,7 @@ const updateRecord = async (req, res) => {
       observaciones: record.observaciones
     };
 
-    const nuevosValores = {};
+        const nuevosValores = {};
     if (tipo) {
       record.tipo = tipo;
       nuevosValores.tipo = tipo;
@@ -480,7 +529,7 @@ const updateRecord = async (req, res) => {
     if (timestamp) {
       const d = new Date(timestamp);
       record.timestamp = d;
-      record.fecha = fecha || getMadridDateString(d);
+      record.fecha = getMadridDateString(d); // Forzar sincronización para evitar bug de horas a 0
       nuevosValores.timestamp = d;
       nuevosValores.fecha = record.fecha;
     }
